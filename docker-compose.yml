@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      # Important: If your server connects to a local MongoDB (e.g. mongodb://localhost:27017/todo)
+      # you will need to change it to use a dockerized MongoDB or host networking, 
+      # e.g., mongodb://host.docker.internal:27017/todo if running mongo locally on the host.
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      # Maps local port 3000 to the container's port 80 (nginx)
+      - "3000:80"
+    depends_on:
+      - server
