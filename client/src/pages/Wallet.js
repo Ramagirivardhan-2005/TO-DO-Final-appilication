@@ -24,9 +24,9 @@ export default function Wallet({ user, setUser }) {
     const fetchWalletData = useCallback(async () => {
         try {
             const [balRes, txRes, subRes] = await Promise.all([
-                axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:5000"}/api/wallet/balance/${user.id}`),
-                axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:5000"}/api/wallet/transactions/${user.id}`),
-                axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:5000"}/api/wallet/subscriptions/${user.id}`)
+                axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/wallet/balance/${user.id}`),
+                axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/wallet/transactions/${user.id}`),
+                axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/wallet/subscriptions/${user.id}`)
             ]);
             setWalletData(balRes.data);
             setTransactions(txRes.data);
@@ -50,7 +50,7 @@ export default function Wallet({ user, setUser }) {
 
         setLoading(true);
         try {
-            const res = await axios.post(`${process.env.REACT_APP_API_URL || "http://localhost:5000"}/api/wallet/redeem`, {
+            const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/wallet/redeem`, {
                 userId: user.id,
                 coinAmount: redeemAmount
             });
@@ -76,7 +76,7 @@ export default function Wallet({ user, setUser }) {
 
         setLoading(true);
         try {
-            const res = await axios.post(`${process.env.REACT_APP_API_URL || "http://localhost:5000"}/api/wallet/subscribe`, {
+            const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/wallet/subscribe`, {
                 userId: user.id,
                 serviceName: service.name,
                 amount: service.price,

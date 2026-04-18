@@ -6,7 +6,7 @@ export default function DeleteTask() {
   const navigate = useNavigate();
 
   const confirmDelete = async () => {
-    await axios.delete(`${process.env.REACT_APP_API_URL || "http://localhost:5000"}/tasks/${id}`);
+    await axios.delete(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/tasks/${id}`);
     navigate("/dashboard");
   };
 

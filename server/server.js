@@ -304,7 +304,74 @@ app.post('/api/auth/google', async (req, res) => {
 app.post('/api/auth/github', async (req, res) => {
     try {
         const { code } = req.body;
-        res.status(501).json({ error: "GitHub OAuth requires Client ID and Secret configuration to be instantiated." });
+        const githubClientId = process.env.GITHUB_CLIENT_ID || "Ov23liZrBeVKxKMXoxJ1";
+        const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
+
+        if (!githubClientSecret) {
+            return res.status(500).json({ error: "GitHub Client Secret is not configured on the server." });
+        }
+
+        const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                client_id: githubClientId,
+                client_secret: githubClientSecret,
+                code: code
+            })
+        });
+        const tokenData = await tokenResponse.json();
+
+        if (tokenData.error) {
+            return res.status(400).json({ error: tokenData.error_description });
+        }
+
+        const accessToken = tokenData.access_token;
+        const userResponse = await fetch('https://api.github.com/user', {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        const githubUser = await userResponse.json();
+
+        const emailResponse = await fetch('https://api.github.com/user/emails', {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        const emails = await emailResponse.json();
+        const primaryEmailObj = emails.find(e => e.primary) || emails[0];
+        const email = primaryEmailObj ? primaryEmailObj.email : null;
+
+        if (!email) {
+            return res.status(400).json({ error: "No email associated with this GitHub account." });
+        }
+
+        let user = await User.findOne({ email });
+        if (!user) {
+            const hashedPw = await bcrypt.hash('oauth_managed_no_password', BCRYPT_ROUNDS);
+            user = new User({ 
+                username: githubUser.login || githubUser.name, 
+                userid: (githubUser.login || 'github') + uuidv4().substring(0,4), 
+                email, 
+                githubId: githubUser.id.toString(), 
+                password: hashedPw, 
+                points: 0, 
+                walletBalance: 0 
+            });
+            await user.save();
+        } else if (!user.githubId) {
+            user.githubId = githubUser.id.toString();
+            await user.save();
+        }
+
+        if (user.mfaEnabled && user.mfaSecret) {
+            const tempToken = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '5m' });
+            return res.json({ mfaRequired: true, tempToken });
+        }
+
+        const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '1h' });
+        res.json({ token, user: { id: user._id, username: user.username, email: user.email, points: user.points, walletBalance: user.walletBalance, mfaEnabled: user.mfaEnabled }});
+
     } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
