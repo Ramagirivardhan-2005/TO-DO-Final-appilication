@@ -42,7 +42,7 @@ export default function Store({ user, setUser }) {
         }
 
         try {
-            const resOrder = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/payment/razorpay/create-order`, {
+            const resOrder = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/payment/razorpay/create-order`, {
                 pack: pack.id,
                 userId: user.id
             });
@@ -58,7 +58,7 @@ export default function Store({ user, setUser }) {
                 order_id: orderInfo.id,
                 handler: async function (response) {
                     try {
-                        const verifyRes = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/payment/razorpay/verify`, {
+                        const verifyRes = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/payment/razorpay/verify`, {
                             razorpay_payment_id: response.razorpay_payment_id,
                             razorpay_order_id: response.razorpay_order_id,
                             razorpay_signature: response.razorpay_signature,
@@ -107,7 +107,7 @@ export default function Store({ user, setUser }) {
         setStatusMsg(null);
 
         try {
-            const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/payment/upi/verify`, {
+            const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/payment/upi/verify`, {
                 userId: user.id,
                 pack: showQR.id,
                 upiRef: upiRef.trim()

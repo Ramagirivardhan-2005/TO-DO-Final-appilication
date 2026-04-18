@@ -11,7 +11,7 @@ export default function EditTask() {
   const isSeries = new URLSearchParams(location.search).get("series") === "true";
 
   useEffect(() => {
-    axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/task/${id}`) 
+    axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/task/${id}`) 
       .then(res => {
         const formattedData = {
             ...res.data,
@@ -25,7 +25,7 @@ export default function EditTask() {
         // Fallback for retrieving list and finding it if /task/:id doesn't exist
         const currentUser = JSON.parse(localStorage.getItem('todoUser'));
         if(currentUser) {
-            axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/tasks/${currentUser.id}`).then(res => {
+            axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/tasks/${currentUser.id}`).then(res => {
                 const found = res.data.find(t => t._id === id);
                 if (found) {
                     setData({
@@ -50,7 +50,7 @@ export default function EditTask() {
 
   const handleUpdate = async (e) => {
     e.preventDefault();
-    let url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/tasks/${id}`;
+    let url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/tasks/${id}`;
     if (isSeries) url += `?series=true`;
     await axios.put(url, data);
     navigate("/dashboard");

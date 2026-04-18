@@ -31,7 +31,7 @@ export default function Login({ setUser }) {
 
   const handleGithubCallback = async (code) => {
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/auth/github`, { code });
+      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/auth/github`, { code });
       
       if (res.data.mfaRequired) {
         setMfaMode(true);
@@ -62,7 +62,7 @@ export default function Login({ setUser }) {
     setError("");
 
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/login`, { username, password });
+      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/login`, { username, password });
       
       if (res.data.mfaRequired) {
         // MFA required — show TOTP input
@@ -88,7 +88,7 @@ export default function Login({ setUser }) {
     setMfaLoading(true);
 
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/mfa/verify-login`, {
+      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/mfa/verify-login`, {
         tempToken,
         token: mfaCode
       });
@@ -105,7 +105,7 @@ export default function Login({ setUser }) {
   const requestEmailMfa = async () => {
       setError(""); setMfaLoading(true); setSuccessMsg("");
       try {
-          const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/auth/request-email-mfa`, { tempToken });
+          const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/auth/request-email-mfa`, { tempToken });
           if(res.data.error) setError(res.data.error);
           else setSuccessMsg(res.data.message);
       } catch(err) { setError("Failed to dispatch email code."); }
@@ -116,7 +116,7 @@ export default function Login({ setUser }) {
     e.preventDefault();
     setError(""); setForgotLoading(true); setSuccessMsg("");
     try {
-        const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/auth/forgot-password`, { email: forgotEmail });
+        const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/auth/forgot-password`, { email: forgotEmail });
         if(res.data.error) setError(res.data.error);
         else {
             setSuccessMsg("Reset code sent! Check your email.");
@@ -130,7 +130,7 @@ export default function Login({ setUser }) {
     e.preventDefault();
     setError(""); setForgotLoading(true); setSuccessMsg("");
     try {
-        const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/auth/reset-password`, { email: forgotEmail, otp: forgotOtp, newPassword });
+        const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/auth/reset-password`, { email: forgotEmail, otp: forgotOtp, newPassword });
         if(res.data.error) setError(res.data.error);
         else {
             setSuccessMsg("Password successfully reset! Please login.");
@@ -143,7 +143,7 @@ export default function Login({ setUser }) {
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/auth/google`, { googleToken: credentialResponse.credential });
+      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/auth/google`, { googleToken: credentialResponse.credential });
       
       if (res.data.mfaRequired) {
         setMfaMode(true);

@@ -31,7 +31,7 @@ export default function Signup({ setUser }) {
 
     setLoading(true);
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/register`, { username, userid, email, password });
+      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/register`, { username, userid, email, password });
       if (res.data.error) {
          setError(res.data.error);
       } else if (res.data.token && res.data.user) {

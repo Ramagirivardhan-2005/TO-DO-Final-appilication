@@ -29,11 +29,11 @@ export default function Dashboard({ user, logout }) {
   const fetchTasksAndUser = useCallback(async () => {
     try {
       // Fetch Dashboard Tasks
-      const resT = await axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/tasks/${user.id}`);
+      const resT = await axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/tasks/${user.id}`);
       setTasks(resT.data);
 
       // Fetch User points
-      const resU = await axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/users/${user.id}`);
+      const resU = await axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/users/${user.id}`);
       setUserData(resU.data);
     } catch (err) { console.error(err); }
   }, [user.id]);
@@ -140,7 +140,7 @@ export default function Dashboard({ user, logout }) {
   // --- API Handlers ---
   const handleToggleComplete = async (task) => {
     try {
-      const res = await axios.put(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/tasks/${task._id}/complete`);
+      const res = await axios.put(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/tasks/${task._id}/complete`);
       if (res.data.pointsAwarded) {
         // Simple visual feedback could go here
         alert(`+${res.data.pointsAwarded} Coins Earned!`);
@@ -228,7 +228,7 @@ export default function Dashboard({ user, logout }) {
   };
 
   const handleDelete = async (task) => {
-    let url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/tasks/${task._id}`;
+    let url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/tasks/${task._id}`;
     if (task.recurring_id) {
        const confirmSeries = window.confirm("This is a recurring event.\n\nClick 'OK' to delete the ENTIRE series.\nClick 'Cancel' to delete ONLY this event.");
        if (confirmSeries) {
@@ -262,7 +262,7 @@ export default function Dashboard({ user, logout }) {
     setMfaLoading(true);
     setMfaMsg({ text: '', type: '' });
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/mfa/setup`, { userId: user.id });
+      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/mfa/setup`, { userId: user.id });
       setMfaQrCode(res.data.qrCode);
       setMfaSecret(res.data.secret);
       setMfaStep('qr');
@@ -277,7 +277,7 @@ export default function Dashboard({ user, logout }) {
     setMfaLoading(true);
     setMfaMsg({ text: '', type: '' });
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/mfa/verify-setup`, {
+      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/mfa/verify-setup`, {
         userId: user.id,
         token: mfaCode
       });
@@ -298,7 +298,7 @@ export default function Dashboard({ user, logout }) {
     setMfaLoading(true);
     setMfaMsg({ text: '', type: '' });
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/mfa/disable`, {
+      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/mfa/disable`, {
         userId: user.id,
         token: mfaCode
       });

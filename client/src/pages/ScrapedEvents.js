@@ -39,7 +39,7 @@ export default function ScrapedEvents({ user }) {
   useEffect(() => {
     const checkConfig = async () => {
       try {
-        const res = await axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/email/config/${user.id}`);
+        const res = await axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/email/config/${user.id}`);
         if (res.data.hasConfig) {
           setHasEmailConfig(true);
           setEmailConfig(prev => ({
@@ -57,13 +57,13 @@ export default function ScrapedEvents({ user }) {
     setLoading(true);
     setError(null);
     try {
-      let url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/scrape/all?userId=${user.id}`;
-      if (activeFilter === 'Codeforces') url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/scrape/codeforces`;
-      if (activeFilter === 'LeetCode') url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/scrape/leetcode`;
-      if (activeFilter === 'CodeChef') url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/scrape/codechef`;
-      if (activeFilter === 'Hackathons') url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/scrape/hackathons`;
-      if (activeFilter === 'Email') url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/email/scan/${user.id}`;
-      if (activeFilter === 'Instagram') url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/scrape/instagram-all/${user.id}`;
+      let url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/scrape/all?userId=${user.id}`;
+      if (activeFilter === 'Codeforces') url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/scrape/codeforces`;
+      if (activeFilter === 'LeetCode') url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/scrape/leetcode`;
+      if (activeFilter === 'CodeChef') url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/scrape/codechef`;
+      if (activeFilter === 'Hackathons') url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/scrape/hackathons`;
+      if (activeFilter === 'Email') url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/email/scan/${user.id}`;
+      if (activeFilter === 'Instagram') url = `${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/scrape/instagram-all/${user.id}`;
 
       const res = await axios.get(url);
       setEvents(Array.isArray(res.data) ? res.data : []);
@@ -81,7 +81,7 @@ export default function ScrapedEvents({ user }) {
   const importAsTask = async (event) => {
     setImportingId(event.id);
     try {
-      await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/import-task`, {
+      await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/import-task`, {
         user_id: user.id,
         name: event.name,
         startTime: event.startTime,
@@ -97,7 +97,7 @@ export default function ScrapedEvents({ user }) {
     setSettingsLoading(true);
     setSettingsMsg('');
     try {
-      await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-1.onrender.com"}/api/email/config`, {
+      await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/email/config`, {
         user_id: user.id,
         email: emailConfig.email,
         app_password: emailConfig.app_password,
