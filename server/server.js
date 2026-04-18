@@ -15,7 +15,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const speakeasy = require('speakeasy');
 const QRCode = require('qrcode');
-const nodemailer = require('nodemailer');
+
 const { createClient } = require('redis');
 
 // --- REDIS CACHE UTILITIES ---
@@ -47,22 +47,6 @@ const setCachedData = async (key, data, expirySeconds = 3600) => {
     try { await redisClient.setEx(key, expirySeconds, JSON.stringify(data)); } catch(e) {}
 };
 
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-});
-
-// Debug: verify SMTP credentials on startup
-console.log(`📧 SMTP Config: user=[${process.env.EMAIL_USER}], pass=[${process.env.EMAIL_PASS ? process.env.EMAIL_PASS.substring(0,4) + '****' : 'NOT SET'}]`);
-transporter.verify((err, success) => {
-    if (err) {
-        console.error('❌ SMTP Verification FAILED:', err.message);
-        console.error('   → Make sure EMAIL_PASS is a valid Google App Password (16 lowercase letters, no spaces)');
-        console.error('   → Make sure 2-Step Verification is ON for your Google account');
-    } else {
-        console.log('✅ SMTP Server is ready to send emails!');
-    }
-});
 
 
 const razorpay = new Razorpay({
@@ -394,18 +378,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         console.log(`EMAIL OTP: [${emailOtp}] for ${email}`);
         console.log(`================================================\n`);
 
-        try {
-            if(process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-                 await transporter.sendMail({
-                    from: process.env.EMAIL_USER,
-                    to: email,
-                    subject: "Password Reset Code 🔑",
-                    text: `Your password reset code is: ${emailOtp}. It expires in 10 minutes.`
-                 });
-            } else {
-                 console.warn("⚠️ EMAIL_USER or EMAIL_PASS not configured in .env. Skipping email sending.");
-            }
-        } catch(err) { console.error("Email send failed:", err.message); }
+        console.log(`[MOCK EMAIL] To: ${email} -> Subject: Password Reset Code 🔑 -> Body: Your password reset code is: ${emailOtp}. It expires in 10 minutes.`);
 
         res.json({ message: "Password reset code sent to your email." });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -567,18 +540,7 @@ app.post('/api/auth/request-email-mfa', async (req, res) => {
         console.log(`EMAIL OTP: [${emailOtp}]`);
         console.log(`====================================================\n`);
 
-        try {
-            if(process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-                 await transporter.sendMail({
-                    from: process.env.EMAIL_USER,
-                    to: user.email,
-                    subject: "Your Login MFA Code ✉️",
-                    text: `Your login code is: ${emailOtp}. It expires in 10 minutes.`
-                 });
-            } else {
-                 console.warn("⚠️ EMAIL_USER or EMAIL_PASS not configured in .env. Skipping email sending.");
-            }
-        } catch(err) { console.error("SMTP failed:", err.message); }
+        console.log(`[MOCK EMAIL] To: ${user.email} -> Subject: Your Login MFA Code ✉️ -> Body: Your login code is: ${emailOtp}. It expires in 10 minutes.`);
 
         res.json({ message: "Verification code sent to your registered email!" });
     } catch(err) { res.status(500).json({error: err.message}); }
