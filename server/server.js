@@ -298,7 +298,10 @@ app.post('/api/auth/google', async (req, res) => {
 
         const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, user: { id: user._id, username: user.username, userid: user.userid, email: user.email, points: user.points, walletBalance: user.walletBalance || 0, mfaEnabled: user.mfaEnabled || false } });
-    } catch(err) { res.status(500).json({ error: err.message }); }
+    } catch(err) { 
+        console.error("Google Auth Backend Error:", err);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/auth/github', async (req, res) => {
