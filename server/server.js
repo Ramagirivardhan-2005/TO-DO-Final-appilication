@@ -108,7 +108,15 @@ app.use(cors({
     origin: function (origin, callback) {
         // Allow requests with no origin (mobile apps, curl, Render health checks)
         if (!origin) return callback(null, true);
+        
+        // Dynamically allow the FRONTEND_URL if specified in env
+        if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) return callback(null, true);
+        
+        // Allow any Vercel preview/production domains dynamically
+        if (origin.endsWith('.vercel.app')) return callback(null, true);
+        
         if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+        
         return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
