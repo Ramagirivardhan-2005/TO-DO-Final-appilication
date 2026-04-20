@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
+import { API_URL } from "../config";
 
 // Configurable UPI merchant details
 const UPI_ID = 'todoappstore@ybl';
@@ -42,7 +43,7 @@ export default function Store({ user, setUser }) {
         }
 
         try {
-            const resOrder = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/payment/razorpay/create-order`, {
+            const resOrder = await axios.post(`${API_URL}/api/payment/razorpay/create-order`, {
                 pack: pack.id,
                 userId: user.id
             });
@@ -58,7 +59,7 @@ export default function Store({ user, setUser }) {
                 order_id: orderInfo.id,
                 handler: async function (response) {
                     try {
-                        const verifyRes = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/payment/razorpay/verify`, {
+                        const verifyRes = await axios.post(`${API_URL}/api/payment/razorpay/verify`, {
                             razorpay_payment_id: response.razorpay_payment_id,
                             razorpay_order_id: response.razorpay_order_id,
                             razorpay_signature: response.razorpay_signature,
@@ -107,7 +108,7 @@ export default function Store({ user, setUser }) {
         setStatusMsg(null);
 
         try {
-            const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/payment/upi/verify`, {
+            const res = await axios.post(`${API_URL}/api/payment/upi/verify`, {
                 userId: user.id,
                 pack: showQR.id,
                 upiRef: upiRef.trim()

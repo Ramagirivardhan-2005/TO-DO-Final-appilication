@@ -1,12 +1,13 @@
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
+import { API_URL } from "../config";
 
 export default function DeleteTask() {
   const { id } = useParams();
   const navigate = useNavigate();
 
   const confirmDelete = async () => {
-    await axios.delete(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/tasks/${id}`);
+    await axios.delete(`${API_URL}/tasks/${id}`);
     navigate("/dashboard");
   };
 

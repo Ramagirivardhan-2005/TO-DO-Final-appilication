@@ -99,11 +99,13 @@ const authenticateToken = (req, res, next) => {
 const app = express();
 
 // --- MIDDLEWARE ---
+// --- MIDDLEWARE ---
 const ALLOWED_ORIGINS = [
-    'https://to-do-final-appilication-2.onrender.com',
-    'http://localhost:3000',
+    process.env.FRONTEND_URL,
+    process.env.LOCAL_FRONTEND_URL || 'http://localhost:3000',
     'http://localhost:3001'
-];
+].filter(Boolean);
+
 app.use(cors({
     origin: function (origin, callback) {
         // Allow requests with no origin (mobile apps, curl, Render health checks)
@@ -281,6 +283,7 @@ app.post('/login', async (req, res) => {
 app.post('/api/auth/google', async (req, res) => {
     try {
         const { googleToken } = req.body;
+        if (!googleToken) return res.status(400).json({error: "Missing Google Token. The login popup might have failed or the origin is unauthorized in Google Cloud Console."});
         const decoded = jwt.decode(googleToken); 
         if (!decoded || !decoded.email) return res.status(400).json({error: "Invalid token structure"});
         
@@ -1255,6 +1258,12 @@ app.get('/api/email/scan/:userId', async (req, res) => {
             logger: false
         });
 
+        // Prevent unhandled error crashes
+        client.on('error', err => {
+            console.error('IMAP background error:', err.message);
+        });
+
+
         await client.connect();
         
         let lock = await client.getMailboxLock('INBOX');
@@ -1439,7 +1448,7 @@ app.get('/api/scrape/instagram-all/:userId', async (req, res) => {
         let allEvents = [];
         for (const handle of handles.slice(0, 10)) {
             try {
-                const r = await fetch(`http://localhost:5000/api/scrape/instagram/${handle}`);
+                const r = await fetch(`http://127.0.0.1:${process.env.PORT || 5000}/api/scrape/instagram/${handle}`);
                 const events = await r.json();
                 allEvents = allEvents.concat(events);
             } catch (e) {
@@ -1470,18 +1479,18 @@ app.get('/api/scrape/all', async (req, res) => {
         const userId = req.query.userId;
         
         const fetches = [
-            fetch('http://localhost:5000/api/scrape/codeforces').then(r => r.json()),
-            fetch('http://localhost:5000/api/scrape/leetcode').then(r => r.json()),
-            fetch('http://localhost:5000/api/scrape/codechef').then(r => r.json()),
-            fetch('http://localhost:5000/api/scrape/hackathons').then(r => r.json()),
+            fetch(`http://127.0.0.1:${process.env.PORT || 5000}/api/scrape/codeforces`).then(r => r.json()),
+            fetch(`http://127.0.0.1:${process.env.PORT || 5000}/api/scrape/leetcode`).then(r => r.json()),
+            fetch(`http://127.0.0.1:${process.env.PORT || 5000}/api/scrape/codechef`).then(r => r.json()),
+            fetch(`http://127.0.0.1:${process.env.PORT || 5000}/api/scrape/hackathons`).then(r => r.json()),
         ];
         
         if (userId) {
             fetches.push(
-                fetch(`http://localhost:5000/api/email/scan/${userId}`).then(r => r.json()).catch(() => [])
+                fetch(`http://127.0.0.1:${process.env.PORT || 5000}/api/email/scan/${userId}`).then(r => r.json()).catch(() => [])
             );
             fetches.push(
-                fetch(`http://localhost:5000/api/scrape/instagram-all/${userId}`).then(r => r.json()).catch(() => [])
+                fetch(`http://127.0.0.1:${process.env.PORT || 5000}/api/scrape/instagram-all/${userId}`).then(r => r.json()).catch(() => [])
             );
         }
         

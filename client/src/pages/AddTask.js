@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
+import { API_URL } from "../config";
 
 export default function AddTask({ user }) {
   const [taskName, setTaskName] = useState("");
@@ -27,7 +28,7 @@ export default function AddTask({ user }) {
 
   const handleAdd = async (e) => {
     e.preventDefault();
-    await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/tasks`, {
+    await axios.post(`${API_URL}/tasks`, {
       user_id: user.id,
       task_name: taskName,
       description: description,

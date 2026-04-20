@@ -1928,3 +1928,122 @@ body.critical-mode {
   .wallet-balance-row { grid-template-columns: 1fr; }
   .redeem-section { flex-direction: column; }
 }
+
+/* --- LOGIN PAGE IMPROVEMENTS --- */
+.login-page {
+  background: linear-gradient(-45deg, #0f2027, #203a43, #2c5364, #1f4037);
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite;
+}
+
+@keyframes gradientBG {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.login-card {
+  background: rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 25px 45px rgba(0,0,0,0.4) !important;
+  color: white;
+  min-width: 380px;
+}
+
+.login-card h2, .login-card p, .login-card .link {
+  color: white !important;
+}
+
+.login-card .link:hover {
+  color: #a29bfe !important;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+}
+
+.login-logo {
+  color: white !important;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+.login-card input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.login-card input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.login-card input:focus {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: #6c5ce7;
+  box-shadow: 0 0 0 4px rgba(108, 92, 231, 0.2);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 30px 0 20px 0;
+}
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.divider span {
+  padding: 0 15px;
+  color: rgba(255,255,255,0.4);
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  font-weight: 500;
+}
+
+.oauth-group {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.google-wrap {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.google-wrap > div {
+  width: 100% !important;
+}
+
+.btn-github {
+  background: #24292e;
+  color: white;
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 4px;
+  padding: 0 12px;
+  height: 40px;
+  font-family: "Roboto", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+.btn-github:hover {
+  background: #1b1f23;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+  border-color: rgba(255,255,255,0.15);
+}
+.github-icon {
+  font-size: 1.1rem;
+}

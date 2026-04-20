@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from "../config";
 
 const SUBSCRIPTION_CATALOG = [
     { id: 'leetcode', name: 'LeetCode Premium', icon: '🧩', price: 499, duration: 'monthly', description: 'Unlock all problems, solutions & company tags', color: '#FFA116', gradient: 'linear-gradient(135deg, #FFA116, #FF6B00)' },
@@ -24,9 +25,9 @@ export default function Wallet({ user, setUser }) {
     const fetchWalletData = useCallback(async () => {
         try {
             const [balRes, txRes, subRes] = await Promise.all([
-                axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/wallet/balance/${user.id}`),
-                axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/wallet/transactions/${user.id}`),
-                axios.get(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/wallet/subscriptions/${user.id}`)
+                axios.get(`${API_URL}/api/wallet/balance/${user.id}`),
+                axios.get(`${API_URL}/api/wallet/transactions/${user.id}`),
+                axios.get(`${API_URL}/api/wallet/subscriptions/${user.id}`)
             ]);
             setWalletData(balRes.data);
             setTransactions(txRes.data);
@@ -50,7 +51,7 @@ export default function Wallet({ user, setUser }) {
 
         setLoading(true);
         try {
-            const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/wallet/redeem`, {
+            const res = await axios.post(`${API_URL}/api/wallet/redeem`, {
                 userId: user.id,
                 coinAmount: redeemAmount
             });
@@ -76,7 +77,7 @@ export default function Wallet({ user, setUser }) {
 
         setLoading(true);
         try {
-            const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/wallet/subscribe`, {
+            const res = await axios.post(`${API_URL}/api/wallet/subscribe`, {
                 userId: user.id,
                 serviceName: service.name,
                 amount: service.price,

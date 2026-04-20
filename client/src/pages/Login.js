@@ -2,6 +2,7 @@ import axios from "axios";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { GoogleLogin } from '@react-oauth/google';
+import { API_URL, GITHUB_CLIENT_ID } from "../config";
 
 export default function Login({ setUser }) {
   const [username, setUsername] = useState("");
@@ -31,7 +32,7 @@ export default function Login({ setUser }) {
 
   const handleGithubCallback = async (code) => {
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/auth/github`, { code });
+      const res = await axios.post(`${API_URL}/api/auth/github`, { code });
       
       if (res.data.mfaRequired) {
         setMfaMode(true);
@@ -62,7 +63,7 @@ export default function Login({ setUser }) {
     setError("");
 
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/login`, { username, password });
+      const res = await axios.post(`${API_URL}/login`, { username, password });
       
       if (res.data.mfaRequired) {
         // MFA required — show TOTP input
@@ -88,7 +89,7 @@ export default function Login({ setUser }) {
     setMfaLoading(true);
 
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/mfa/verify-login`, {
+      const res = await axios.post(`${API_URL}/api/mfa/verify-login`, {
         tempToken,
         token: mfaCode
       });
@@ -105,7 +106,7 @@ export default function Login({ setUser }) {
   const requestEmailMfa = async () => {
       setError(""); setMfaLoading(true); setSuccessMsg("");
       try {
-          const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/auth/request-email-mfa`, { tempToken });
+          const res = await axios.post(`${API_URL}/api/auth/request-email-mfa`, { tempToken });
           if(res.data.error) setError(res.data.error);
           else setSuccessMsg(res.data.message);
       } catch(err) { setError("Failed to dispatch email code."); }
@@ -116,7 +117,7 @@ export default function Login({ setUser }) {
     e.preventDefault();
     setError(""); setForgotLoading(true); setSuccessMsg("");
     try {
-        const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/auth/forgot-password`, { email: forgotEmail });
+        const res = await axios.post(`${API_URL}/api/auth/forgot-password`, { email: forgotEmail });
         if(res.data.error) setError(res.data.error);
         else {
             setSuccessMsg("Reset code sent! Check your email.");
@@ -130,7 +131,7 @@ export default function Login({ setUser }) {
     e.preventDefault();
     setError(""); setForgotLoading(true); setSuccessMsg("");
     try {
-        const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/auth/reset-password`, { email: forgotEmail, otp: forgotOtp, newPassword });
+        const res = await axios.post(`${API_URL}/api/auth/reset-password`, { email: forgotEmail, otp: forgotOtp, newPassword });
         if(res.data.error) setError(res.data.error);
         else {
             setSuccessMsg("Password successfully reset! Please login.");
@@ -143,7 +144,7 @@ export default function Login({ setUser }) {
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL || "https://to-do-final-appilication-2.onrender.com"}/api/auth/google`, { googleToken: credentialResponse.credential });
+      const res = await axios.post(`${API_URL}/api/auth/google`, { googleToken: credentialResponse.credential });
       
       if (res.data.mfaRequired) {
         setMfaMode(true);
@@ -162,9 +163,9 @@ export default function Login({ setUser }) {
   // MFA Verification Screen
   if (mfaMode) {
     return (
-      <div className="page-center">
-        <div className="card mfa-card">
-          <div className="app-logo">
+      <div className="page-center login-page">
+        <div className="card mfa-card login-card">
+          <div className="app-logo login-logo">
             <span className="logo-icon">🔐</span> Two-Factor Auth
           </div>
           <p style={{ color: '#666', textAlign: 'center', marginBottom: '20px', fontSize: '0.9rem' }}>
@@ -240,9 +241,9 @@ export default function Login({ setUser }) {
   }
 
   return (
-    <div className="page-center">
-      <div className="card">
-        <div className="app-logo">
+    <div className="page-center login-page">
+      <div className="card login-card">
+        <div className="app-logo login-logo">
            <span className="logo-icon">⚡</span> TodoApp
         </div>
         <h2>Welcome Back</h2>
@@ -272,18 +273,20 @@ export default function Login({ setUser }) {
               <button className="btn-primary" type="submit">Login</button>
             </form>
 
-            <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-                <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)' }}>OR</div>
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => setError("Google Login Exception")}
-                  useOneTap
-                  theme="filled_black"
-                />
-                <button className="btn-refresh" type="button" style={{width:'auto', minWidth:'200px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px'}} onClick={() => window.location.href = `https://github.com/login/oauth/authorize?client_id=${process.env.REACT_APP_GITHUB_CLIENT_ID || "Ov23liZrBeVKxKMXoxJ1"}&scope=user:email`}>
-                    <span role="img" aria-label="github">🐙</span> Sign in with GitHub
-                </button>
-            </div>
+                <div className="divider"><span>OR</span></div>
+                <div className="oauth-group">
+                  <div className="google-wrap">
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={() => setError("Google Login Exception")}
+                      useOneTap
+                      theme="filled_black"
+                    />
+                  </div>
+                  <button className="btn-github" type="button" onClick={() => window.location.href = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=user:email`}>
+                      <span className="github-icon" role="img" aria-label="github">🐙</span> Sign in with GitHub
+                  </button>
+                </div>
 
             <p onClick={() => navigate("/signup")} className="link" style={{marginTop:'25px', cursor:'pointer', textAlign:'center'}}>Create an Account</p>
           </>
