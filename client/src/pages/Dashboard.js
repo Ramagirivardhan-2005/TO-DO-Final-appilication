@@ -5,7 +5,7 @@ import Calendar from "react-calendar";
 import 'react-calendar/dist/Calendar.css'; // basic styles, we'll override in App.css
 import { API_URL } from "../config";
 
-export default function Dashboard({ user, logout }) {
+export default function Dashboard({ user, logout, theme, toggleTheme }) {
   const [tasks, setTasks] = useState([]);
   const [userData, setUserData] = useState({ points: 0, email: '' });
   const [alertTaskId, setAlertTaskId] = useState(null);
@@ -339,6 +339,11 @@ export default function Dashboard({ user, logout }) {
            <div className="points-counter" title="Complete tasks on time to earn coins!">
              🪙 {userData.points}
            </div>
+           
+           <button className="theme-toggle-btn" onClick={toggleTheme} title="Toggle Light/Dark Mode">
+             {theme === 'dark' ? '☀️' : '🌙'}
+           </button>
+
            <button className="btn-scrape" onClick={() => navigate("/store")} title="Buy Coins">
               🛒 Store
             </button>

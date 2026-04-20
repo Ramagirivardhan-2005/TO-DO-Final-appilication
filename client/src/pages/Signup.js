@@ -46,9 +46,9 @@ export default function Signup({ setUser }) {
   };
 
   return (
-    <div className="page-center">
-      <div className="card">
-        <div className="app-logo"><span className="logo-icon">✨</span> Join Us</div>
+    <div className="page-center login-page">
+      <div className="card login-card">
+        <div className="app-logo login-logo"><span className="logo-icon">✨</span> Join Us</div>
         
         {error && (
             <div style={{
@@ -61,14 +61,14 @@ export default function Signup({ setUser }) {
 
         <form onSubmit={handleSignup}>
           <div className="input-group">
-            <input type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} required />
-            <input type="text" placeholder="User ID" value={userid} onChange={(e) => setUserid(e.target.value)} required />
-            <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input type="text" placeholder="Username (e.g. john_doe)" value={username} onChange={(e) => setUsername(e.target.value)} required />
+            <input type="text" placeholder="User ID (e.g. john99)" value={userid} onChange={(e) => setUserid(e.target.value)} required />
+            <input type="email" placeholder="Email Address (e.g. john@example.com)" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
           
           <div className="input-group">
-            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            <small style={{display:'block', color:'#666', fontSize:'0.7rem', marginTop:'5px'}}>
+            <input type="password" placeholder="Password (e.g. StrongPass123!)" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <small style={{display:'block', color:'rgba(255,255,255,0.6)', fontSize:'0.75rem', marginTop:'5px', textAlign: 'left', paddingLeft: '5px'}}>
               Min 8 chars, 1 Upper, 1 Lower, 1 Number, 1 Special
             </small>
             <input type="password" placeholder="Confirm Password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required style={{marginTop: '10px'}}/>

@@ -27,8 +27,14 @@ axios.interceptors.request.use((config) => {
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [theme, setTheme] = useState(localStorage.getItem("todoTheme") || "dark");
 
+  useEffect(() => {
+    document.body.setAttribute("data-theme", theme);
+    localStorage.setItem("todoTheme", theme);
+  }, [theme]);
 
+  const toggleTheme = () => setTheme(prev => prev === "dark" ? "light" : "dark");
 
   useEffect(() => {
     // Check local storage on load
@@ -65,7 +71,7 @@ export default function App() {
             {/* Protected Routes */}
             <Route 
               path="/dashboard" 
-              element={user ? <Dashboard user={user} logout={handleLogout} /> : <Navigate to="/" />} 
+              element={user ? <Dashboard user={user} logout={handleLogout} theme={theme} toggleTheme={toggleTheme} /> : <Navigate to="/" />} 
             />
             <Route 
               path="/add" 
