@@ -15,6 +15,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const speakeasy = require('speakeasy');
 const QRCode = require('qrcode');
+const nodemailer = require('nodemailer');
 
 const { createClient } = require('redis');
 
@@ -24,7 +25,6 @@ let redisClient = null;
     try {
         redisClient = createClient({ url: process.env.REDIS_URI || 'redis://127.0.0.1:6379' });
         redisClient.on('error', (err) => {
-           // Suppress spammy connection errors if Redis isn't running
         });
         await redisClient.connect();
         console.log('✅ Redis Connected');
@@ -33,6 +33,7 @@ let redisClient = null;
         redisClient = null;
     }
 })();
+
 
 const getCachedData = async (key) => {
     if (!redisClient) return null;
@@ -53,6 +54,86 @@ const razorpay = new Razorpay({
     key_id: 'rzp_test_SdnwDgxUhr6hKi',
     key_secret: 'v4irVY2uokZ03BC2wl78V1vy'
 });
+
+// --- NODEMAILER SMTP TRANSPORTER ---
+let smtpTransporter = null;
+
+async function initSmtpTransporter() {
+    // Try Gmail first
+    try {
+        const gmailTransporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true,
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+            }
+        });
+        await gmailTransporter.verify();
+        smtpTransporter = gmailTransporter;
+        console.log('✅ SMTP Transporter ready (Gmail)');
+        return;
+    } catch (gmailErr) {
+        console.warn('⚠️ Gmail SMTP failed:', gmailErr.message);
+    }
+
+    // Fallback: create Ethereal test account (emails viewable at ethereal.email)
+    try {
+        const testAccount = await nodemailer.createTestAccount();
+        smtpTransporter = nodemailer.createTransport({
+            host: 'smtp.ethereal.email',
+            port: 587,
+            secure: false,
+            auth: {
+                user: testAccount.user,
+                pass: testAccount.pass
+            }
+        });
+        console.log('✅ SMTP Transporter ready (Ethereal fallback)');
+        console.log(`📬 View test emails at: https://ethereal.email/login`);
+        console.log(`   User: ${testAccount.user} | Pass: ${testAccount.pass}`);
+    } catch (fallbackErr) {
+        console.error('❌ All SMTP transports failed. OTP emails will be logged to console.');
+    }
+}
+
+initSmtpTransporter();
+
+
+/**
+ * Send an OTP email via Nodemailer
+ * @param {string} to - recipient email address
+ * @param {string} subject - email subject
+ * @param {string} otp - the OTP code
+ * @param {string} purpose - e.g. 'password reset' or 'login verification'
+ */
+async function sendOtpEmail(to, subject, otp, purpose = 'verification') {
+    if (!smtpTransporter) {
+        console.log(`📧 [CONSOLE FALLBACK] OTP for ${to}: ${otp} (${purpose})`);
+        return;
+    }
+    const htmlBody = `
+        <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0f0f23;border-radius:16px;border:1px solid rgba(139,92,246,0.3)">
+            <h2 style="color:#a78bfa;margin:0 0 8px;font-size:22px">⚡ TodoApp</h2>
+            <p style="color:#e2e8f0;font-size:15px;margin:0 0 24px">Your ${purpose} code is:</p>
+            <div style="background:rgba(139,92,246,0.15);border:2px solid #a78bfa;border-radius:12px;padding:20px;text-align:center;margin:0 0 24px">
+                <span style="font-family:monospace;font-size:36px;font-weight:700;letter-spacing:10px;color:#fff">${otp}</span>
+            </div>
+            <p style="color:#94a3b8;font-size:13px;margin:0">This code expires in <strong style="color:#e2e8f0">10 minutes</strong>. If you didn't request this, please ignore this email.</p>
+        </div>
+    `;
+    const info = await smtpTransporter.sendMail({
+        from: `"TodoApp" <${process.env.EMAIL_USER}>`,
+        to,
+        subject,
+        html: htmlBody
+    });
+    console.log(`📧 OTP email sent to ${to} for ${purpose}`);
+    // Show preview URL for Ethereal test emails
+    const previewUrl = nodemailer.getTestMessageUrl(info);
+    if (previewUrl) console.log(`📬 Preview: ${previewUrl}`);
+}
 
 // --- ENCRYPTION UTILITIES (AES-256-GCM) ---
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY
@@ -80,6 +161,54 @@ function decrypt(encryptedText) {
     decrypted += decipher.final('utf8');
     return decrypted;
 }
+
+// --- DETERMINISTIC EMAIL HASH FOR LOOKUPS ---
+// encrypt() uses random IVs so the same email produces different ciphertext each time.
+// We use a SHA-256 HMAC hash for deterministic lookups in the database.
+function emailHash(email) {
+    return crypto.createHmac('sha256', ENCRYPTION_KEY)
+        .update(email.toLowerCase().trim())
+        .digest('hex');
+}
+
+// --- FIELD-LEVEL ENCRYPTION MIDDLEWARE ---
+// Encrypt sensitive user fields before saving to DB
+const encryptUserFields = (userData) => {
+    const encrypted = { ...userData };
+    // Encrypt email if present and not already encrypted
+    if (encrypted.email && !encrypted.email.includes(':')) {
+        encrypted.email = encrypt(encrypted.email);
+    }
+    // Encrypt username if present and not already encrypted
+    if (encrypted.username && !encrypted.username.includes(':')) {
+        encrypted.username = encrypt(encrypted.username);
+    }
+    return encrypted;
+};
+
+// Decrypt sensitive user fields after reading from DB
+const decryptUserFields = (userDoc) => {
+    if (!userDoc) return null;
+    const user = userDoc.toObject ? userDoc.toObject() : { ...userDoc };
+    try {
+        // Try to decrypt email - if it fails, it's not encrypted (legacy data)
+        if (user.email && user.email.includes(':')) {
+            user.email = decrypt(user.email);
+        }
+        // Try to decrypt username
+        if (user.username && user.username.includes(':')) {
+            user.username = decrypt(user.username);
+        }
+    } catch (e) {
+        // Field not encrypted - return as-is (legacy data)
+    }
+    return user;
+};
+
+// Decrypt multiple user documents
+const decryptUserList = (userDocs) => {
+    return userDocs.map(decryptUserFields);
+};
 
 // --- MIDDLEWARE ---
 const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_jwt_key_here_tododash';
@@ -141,6 +270,7 @@ const UserSchema = new mongoose.Schema({
     userid: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     email: { type: String, required: true },
+    emailHash: { type: String, index: true }, // Deterministic hash for email lookups
     points: { type: Number, default: 0 },
     walletBalance: { type: Number, default: 0 }, // In rupees
     googleId: { type: String, sparse: true, unique: true },
@@ -210,7 +340,28 @@ const EmailConfig = mongoose.model('EmailConfig', EmailConfigSchema);
 app.get('/users/:id', authenticateToken, async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
-        res.json({ points: user.points, email: user.email, username: user.username, walletBalance: user.walletBalance || 0, mfaEnabled: user.mfaEnabled || false });
+        
+        // Decrypt user fields for response
+        let decryptedUsername = user.username;
+        let decryptedEmail = user.email;
+        try {
+            if (user.username && user.username.includes(':')) {
+                decryptedUsername = decrypt(user.username);
+            }
+            if (user.email && user.email.includes(':')) {
+                decryptedEmail = decrypt(user.email);
+            }
+        } catch (e) {
+            // Legacy data - use as-is
+        }
+        
+        res.json({ 
+            points: user.points, 
+            email: decryptedEmail, 
+            username: decryptedUsername, 
+            walletBalance: user.walletBalance || 0, 
+            mfaEnabled: user.mfaEnabled || false 
+        });
     } catch(err) {
         res.status(500).json({error: "Server Error"});
     }
@@ -220,28 +371,49 @@ app.get('/users/:id', authenticateToken, async (req, res) => {
 app.post('/register', async (req, res) => {
     try {
         const { username, userid, password, email } = req.body;
-        const existingUser = await User.findOne({ $or: [{username}, {email}, {userid: userid || username}] });
-        if (existingUser) return res.json({ error: "Username, User ID, or Email already exists" });
+        
+        // Check if userid already exists (userid is not encrypted)
+        const existingUser = await User.findOne({ userid: userid || username });
+        if (existingUser) return res.json({ error: "User ID already exists" });
+
+        // Check for email uniqueness using deterministic hash
+        const hashedEmail = emailHash(email);
+        const emailExists = await User.findOne({ emailHash: hashedEmail });
+        if (emailExists) return res.json({ error: "Email already exists" });
 
         // Hash password with bcrypt
         const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
         
+        // Encrypt sensitive fields before saving
+        const encryptedUsername = encrypt(username);
+        const encryptedEmail = encrypt(email);
+        
         const newUser = new User({ 
-            username, userid: userid || username, password: hashedPassword, email, 
-            points: 0, walletBalance: 0,
+            username: encryptedUsername, 
+            userid: userid || username, 
+            password: hashedPassword, 
+            email: encryptedEmail, 
+            emailHash: hashedEmail,
+            points: 0, 
+            walletBalance: 0,
             isEmailVerified: true
         });
         await newUser.save();
 
-        const token = jwt.sign({ id: newUser._id, username: newUser.username }, JWT_SECRET, { expiresIn: '7d' });
-        res.json({ token, user: { id: newUser._id, username: newUser.username, userid: newUser.userid, email: newUser.email, points: newUser.points, walletBalance: newUser.walletBalance || 0, mfaEnabled: false } });
+        // Decrypt for response (don't store decrypted)
+        const decryptedUsername = username;
+        const decryptedEmail = email;
+
+        const token = jwt.sign({ id: newUser._id, username: decryptedUsername }, JWT_SECRET, { expiresIn: '7d' });
+        res.json({ token, user: { id: newUser._id, username: decryptedUsername, userid: newUser.userid, email: decryptedEmail, points: newUser.points, walletBalance: newUser.walletBalance || 0, mfaEnabled: false } });
     } catch (err) { res.json({ error: err.message }); }
 });
 
 app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const user = await User.findOne({ username });
+    // Now username is encrypted, so we search by userid instead
+    const user = await User.findOne({ userid: username });
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials. Please try again." });
     }
@@ -257,12 +429,28 @@ app.post('/login', async (req, res) => {
       if (isValid) {
         user.password = await bcrypt.hash(password, BCRYPT_ROUNDS);
         await user.save();
-        console.log(`🔒 Migrated plaintext password for user: ${user.username}`);
+        console.log(`🔒 Migrated plaintext password for user: ${user.userid}`);
       }
     }
 
     if (!isValid) {
       return res.status(401).json({ message: "Incorrect password. Please try again." });
+    }
+
+    // Decrypt user fields for response
+    let decryptedUsername = username;
+    let decryptedEmail = '';
+    try {
+      if (user.username && user.username.includes(':')) {
+        decryptedUsername = decrypt(user.username);
+      }
+      if (user.email && user.email.includes(':')) {
+        decryptedEmail = decrypt(user.email);
+      } else {
+        decryptedEmail = user.email; // Legacy data
+      }
+    } catch (e) {
+      console.log('Decryption warning:', e.message);
     }
 
     // Check if MFA is enabled
@@ -272,8 +460,8 @@ app.post('/login', async (req, res) => {
       return res.json({ mfaRequired: true, tempToken });
     }
     
-    const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { id: user._id, username: user.username, userid: user.userid, email: user.email, points: user.points, walletBalance: user.walletBalance || 0, mfaEnabled: user.mfaEnabled || false } });
+    const token = jwt.sign({ id: user._id, username: decryptedUsername }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user: { id: user._id, username: decryptedUsername, userid: user.userid, email: decryptedEmail, points: user.points, walletBalance: user.walletBalance || 0, mfaEnabled: user.mfaEnabled || false } });
   } catch (err) { 
     console.error('Login error:', err);
     res.status(500).json({ error: "Server error during login" }); 
@@ -291,15 +479,46 @@ app.post('/api/auth/google', async (req, res) => {
         const name = decoded.name || email.split('@')[0];
         const googleId = decoded.sub;
 
-        let user = await User.findOne({ email });
+        // Search by googleId or encrypted email
+        let user = await User.findOne({ googleId });
+        if (!user) {
+            // Try to find by deterministic email hash
+            user = await User.findOne({ emailHash: emailHash(email) });
+        }
+        
         if (!user) {
             const hashedPw = await bcrypt.hash('oauth_managed_no_password', BCRYPT_ROUNDS);
-            user = new User({ username: name, userid: name + uuidv4().substring(0,4), email, googleId, password: hashedPw, points: 0, walletBalance: 0 });
+            const encryptedUsername = encrypt(name);
+            const encryptedEmail = encrypt(email);
+            user = new User({ 
+                username: encryptedUsername, 
+                userid: name + uuidv4().substring(0,4), 
+                email: encryptedEmail, 
+                emailHash: emailHash(email),
+                googleId, 
+                password: hashedPw, 
+                points: 0, 
+                walletBalance: 0 
+            });
             await user.save();
         } else if (!user.googleId) {
             user.googleId = googleId;
             await user.save();
         }
+
+        // Decrypt user fields for response
+        let decryptedUsername = name;
+        let decryptedEmail = email;
+        try {
+            if (user.username && user.username.includes(':')) {
+                decryptedUsername = decrypt(user.username);
+            }
+            if (user.email && user.email.includes(':')) {
+                decryptedEmail = decrypt(user.email);
+            } else {
+                decryptedEmail = user.email; 
+            }
+        } catch (e) {}
 
         // Check MFA for OAuth users too
         if (user.mfaEnabled) {
@@ -307,8 +526,8 @@ app.post('/api/auth/google', async (req, res) => {
             return res.json({ mfaRequired: true, tempToken });
         }
 
-        const token = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
-        res.json({ token, user: { id: user._id, username: user.username, userid: user.userid, email: user.email, points: user.points, walletBalance: user.walletBalance || 0, mfaEnabled: user.mfaEnabled || false } });
+        const token = jwt.sign({ id: user._id, username: decryptedUsername }, JWT_SECRET, { expiresIn: '7d' });
+        res.json({ token, user: { id: user._id, username: decryptedUsername, userid: user.userid, email: decryptedEmail, points: user.points, walletBalance: user.walletBalance || 0, mfaEnabled: user.mfaEnabled || false } });
     } catch(err) { 
         console.error("Google Auth Backend Error:", err);
         res.status(500).json({ error: err.message }); 
@@ -360,13 +579,21 @@ app.post('/api/auth/github', async (req, res) => {
             return res.status(400).json({ error: "No email associated with this GitHub account." });
         }
 
-        let user = await User.findOne({ email });
+        // Search by githubId or encrypted email
+        let user = await User.findOne({ githubId: githubUser.id.toString() });
+        if (!user) {
+            user = await User.findOne({ emailHash: emailHash(email) });
+        }
+
         if (!user) {
             const hashedPw = await bcrypt.hash('oauth_managed_no_password', BCRYPT_ROUNDS);
+            const encryptedUsername = encrypt(githubUser.login || githubUser.name);
+            const encryptedEmail = encrypt(email);
             user = new User({ 
-                username: githubUser.login || githubUser.name, 
+                username: encryptedUsername, 
                 userid: (githubUser.login || 'github') + uuidv4().substring(0,4), 
-                email, 
+                email: encryptedEmail, 
+                emailHash: emailHash(email),
                 githubId: githubUser.id.toString(), 
                 password: hashedPw, 
                 points: 0, 
@@ -378,13 +605,27 @@ app.post('/api/auth/github', async (req, res) => {
             await user.save();
         }
 
+        // Decrypt user fields for response
+        let decryptedUsername = githubUser.login || githubUser.name;
+        let decryptedEmail = email;
+        try {
+            if (user.username && user.username.includes(':')) {
+                decryptedUsername = decrypt(user.username);
+            }
+            if (user.email && user.email.includes(':')) {
+                decryptedEmail = decrypt(user.email);
+            } else {
+                decryptedEmail = user.email; // Legacy data
+            }
+        } catch (e) {}
+
         if (user.mfaEnabled && user.mfaSecret) {
             const tempToken = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '5m' });
             return res.json({ mfaRequired: true, tempToken });
         }
 
         const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '1h' });
-        res.json({ token, user: { id: user._id, username: user.username, email: user.email, points: user.points, walletBalance: user.walletBalance, mfaEnabled: user.mfaEnabled }});
+        res.json({ token, user: { id: user._id, username: decryptedUsername, email: decryptedEmail, points: user.points, walletBalance: user.walletBalance, mfaEnabled: user.mfaEnabled }});
 
     } catch(err) { res.status(500).json({ error: err.message }); }
 });
@@ -393,19 +634,24 @@ app.post('/api/auth/github', async (req, res) => {
 app.post('/api/auth/forgot-password', async (req, res) => {
     try {
         const { email } = req.body;
-        const user = await User.findOne({ email });
+        
+        // Search by deterministic email hash
+        const user = await User.findOne({ emailHash: emailHash(email) });
         if (!user) return res.status(404).json({ error: "No account found with that email." });
 
         const emailOtp = Math.floor(100000 + Math.random() * 900000).toString();
-        user.emailOtp = emailOtp;
+        // Encrypt OTP before storing in DB
+        user.emailOtp = encrypt(emailOtp);
         user.otpExpiry = new Date(Date.now() + 10 * 60000);
         await user.save();
 
-        console.log(`\n============== PASSWORD RESET OTP ==============`);
-        console.log(`EMAIL OTP: [${emailOtp}] for ${email}`);
-        console.log(`================================================\n`);
-
-        console.log(`[MOCK EMAIL] To: ${email} -> Subject: Password Reset Code 🔑 -> Body: Your password reset code is: ${emailOtp}. It expires in 10 minutes.`);
+        // Send real email via Nodemailer SMTP
+        try {
+            await sendOtpEmail(email, '🔑 Password Reset Code — TodoApp', emailOtp, 'password reset');
+        } catch (mailErr) {
+            console.error('Failed to send password reset email:', mailErr.message);
+            return res.status(500).json({ error: 'Failed to send reset email. Please try again.' });
+        }
 
         res.json({ message: "Password reset code sent to your email." });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -414,10 +660,18 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 app.post('/api/auth/reset-password', async (req, res) => {
     try {
         const { email, otp, newPassword } = req.body;
-        const user = await User.findOne({ email });
+        
+        // Search by deterministic email hash
+        const user = await User.findOne({ emailHash: emailHash(email) });
         if (!user) return res.status(404).json({ error: "No account found." });
 
-        if (user.otpExpiry < new Date() || user.emailOtp !== otp) {
+        // Decrypt stored OTP to compare
+        let storedOtp = user.emailOtp;
+        try {
+            if (storedOtp && storedOtp.includes(':')) storedOtp = decrypt(storedOtp);
+        } catch (e) { /* legacy plaintext OTP */ }
+
+        if (user.otpExpiry < new Date() || storedOtp !== otp) {
             return res.status(400).json({ error: "Invalid or expired OTP." });
         }
 
@@ -514,15 +768,21 @@ app.post('/api/mfa/verify-login', async (req, res) => {
 
         let isValid = false;
         
-        // 1. Check if Email OTP matches
-        if (user.emailOtp && user.emailOtp === totpCode && user.otpExpiry > new Date()) {
-            isValid = true;
-            user.emailOtp = undefined;
-            user.otpExpiry = undefined;
-            await user.save();
+        // 1. Check if Email OTP matches (decrypt stored OTP first)
+        if (user.emailOtp && user.otpExpiry > new Date()) {
+            let storedOtp = user.emailOtp;
+            try {
+                if (storedOtp.includes(':')) storedOtp = decrypt(storedOtp);
+            } catch (e) { /* legacy plaintext OTP */ }
+            if (storedOtp === totpCode) {
+                isValid = true;
+                user.emailOtp = undefined;
+                user.otpExpiry = undefined;
+                await user.save();
+            }
         } 
         // 2. Or fallback to Authenticator TOTP
-        else if (user.mfaEnabled && user.mfaSecret) {
+        if (!isValid && user.mfaEnabled && user.mfaSecret) {
             const decryptedSecret = decrypt(user.mfaSecret);
             isValid = speakeasy.totp.verify({
                 secret: decryptedSecret,
@@ -536,11 +796,19 @@ app.post('/api/mfa/verify-login', async (req, res) => {
             return res.status(400).json({ error: 'Invalid verification code.' });
         }
 
+        // Decrypt user fields before issuing JWT and response
+        let decryptedUsername = user.username;
+        let decryptedEmail = user.email;
+        try {
+            if (user.username && user.username.includes(':')) decryptedUsername = decrypt(user.username);
+            if (user.email && user.email.includes(':')) decryptedEmail = decrypt(user.email);
+        } catch (e) { /* legacy data */ }
+
         // Issue full JWT
-        const fullToken = jwt.sign({ id: user._id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
+        const fullToken = jwt.sign({ id: user._id, username: decryptedUsername }, JWT_SECRET, { expiresIn: '7d' });
         res.json({
             token: fullToken,
-            user: { id: user._id, username: user.username, userid: user.userid, email: user.email, points: user.points, walletBalance: user.walletBalance || 0, mfaEnabled: !!user.mfaSecret }
+            user: { id: user._id, username: decryptedUsername, userid: user.userid, email: decryptedEmail, points: user.points, walletBalance: user.walletBalance || 0, mfaEnabled: !!user.mfaSecret }
         });
     } catch (err) {
         console.error('MFA verify-login error:', err);
@@ -559,15 +827,24 @@ app.post('/api/auth/request-email-mfa', async (req, res) => {
         if(!user) return res.status(404).json({error: "User not found"});
 
         const emailOtp = Math.floor(100000 + Math.random() * 900000).toString();
-        user.emailOtp = emailOtp;
+        // Encrypt OTP before storing in DB
+        user.emailOtp = encrypt(emailOtp);
         user.otpExpiry = new Date(Date.now() + 10 * 60000);
         await user.save();
 
-        console.log(`\n============== LOGIN OTP FOR ${user.username} ==============`);
-        console.log(`EMAIL OTP: [${emailOtp}]`);
-        console.log(`====================================================\n`);
+        // Decrypt user email to send to
+        let recipientEmail = user.email;
+        try {
+            if (recipientEmail && recipientEmail.includes(':')) recipientEmail = decrypt(recipientEmail);
+        } catch (e) { /* legacy data */ }
 
-        console.log(`[MOCK EMAIL] To: ${user.email} -> Subject: Your Login MFA Code ✉️ -> Body: Your login code is: ${emailOtp}. It expires in 10 minutes.`);
+        // Send real email via Nodemailer SMTP
+        try {
+            await sendOtpEmail(recipientEmail, '✉️ Login Verification Code — TodoApp', emailOtp, 'login verification');
+        } catch (mailErr) {
+            console.error('Failed to send MFA email:', mailErr.message);
+            return res.status(500).json({ error: 'Failed to send verification email. Please try again.' });
+        }
 
         res.json({ message: "Verification code sent to your registered email!" });
     } catch(err) { res.status(500).json({error: err.message}); }
@@ -839,10 +1116,35 @@ app.post('/api/payment/upi/verify', authenticateToken, async (req, res) => {
 });
 
 // ========== TASK ROUTES ==========
+
+// Helper: encrypt task fields before saving
+const encryptTaskFields = (taskData) => {
+    const encrypted = { ...taskData };
+    if (encrypted.task_name && !encrypted.task_name.includes(':')) {
+        encrypted.task_name = encrypt(encrypted.task_name);
+    }
+    if (encrypted.description && !encrypted.description.includes(':')) {
+        encrypted.description = encrypt(encrypted.description);
+    }
+    return encrypted;
+};
+
+// Helper: decrypt task fields after reading
+const decryptTaskFields = (taskDoc) => {
+    const task = taskDoc.toObject ? taskDoc.toObject() : { ...taskDoc };
+    try {
+        if (task.task_name && task.task_name.includes(':')) task.task_name = decrypt(task.task_name);
+    } catch (e) { /* legacy data */ }
+    try {
+        if (task.description && task.description.includes(':')) task.description = decrypt(task.description);
+    } catch (e) { /* legacy data */ }
+    return task;
+};
+
 app.get('/tasks/:userId', authenticateToken, async (req, res) => {
     try {
         const tasks = await Task.find({ user_id: req.params.userId });
-        res.json(tasks);
+        res.json(tasks.map(decryptTaskFields));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -852,7 +1154,7 @@ app.get('/task/:id', authenticateToken, async (req, res) => {
     try {
         const task = await Task.findById(req.params.id);
         if (!task) return res.status(404).json({ error: 'Task not found' });
-        res.json(task);
+        res.json(decryptTaskFields(task));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -878,15 +1180,15 @@ app.post('/tasks', authenticateToken, async (req, res) => {
             const localDate = new Date(nextDate.getTime() - (offset*60*1000));
             const dateStr = localDate.toISOString().slice(0, 16);
             
-            instances.push({
+            instances.push(encryptTaskFields({
                 ...req.body,
                 recurring_id,
                 completion_time: dateStr
-            });
+            }));
         }
         await Task.insertMany(instances);
     } else {
-        await new Task(req.body).save();
+        await new Task(encryptTaskFields(req.body)).save();
     }
     res.json({ message: "Added" });
 });
@@ -922,12 +1224,13 @@ app.put('/tasks/:id', authenticateToken, async (req, res) => {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({error: "Not found"});
     
+    const encryptedBody = encryptTaskFields(req.body);
     if (series === 'true' && task.recurring_id) {
-        const updateData = { ...req.body };
+        const updateData = { ...encryptedBody };
         delete updateData.completion_time; 
         await Task.updateMany({ recurring_id: task.recurring_id }, updateData);
     } else {
-        await Task.findByIdAndUpdate(req.params.id, req.body);
+        await Task.findByIdAndUpdate(req.params.id, encryptedBody);
     }
     res.json({ message: "Updated" });
 });
@@ -1189,15 +1492,17 @@ app.post('/api/email/config', authenticateToken, async (req, res) => {
     try {
         const { user_id, email, app_password, instagram_handles } = req.body;
         
-        // Encrypt the app password before storing
+        // Encrypt sensitive fields before storing
+        const encryptedEmail = encrypt(email);
         const encryptedPassword = encrypt(app_password);
+        const encryptedHandles = instagram_handles ? instagram_handles.map(h => encrypt(h)) : [];
         
         const config = await EmailConfig.findOneAndUpdate(
             { user_id },
             { 
-                email, 
+                email: encryptedEmail, 
                 app_password: encryptedPassword, 
-                instagram_handles: instagram_handles || [],
+                instagram_handles: encryptedHandles,
                 imap_host: 'imap.gmail.com', 
                 imap_port: 993 
             },
@@ -1216,11 +1521,28 @@ app.get('/api/email/config/:userId', async (req, res) => {
     try {
         const config = await EmailConfig.findOne({ user_id: req.params.userId });
         if (config) {
+            // Decrypt fields for response
+            let decryptedEmail = config.email;
+            let decryptedHandles = [];
+            try {
+                if (config.email && config.email.includes(':')) {
+                    decryptedEmail = decrypt(config.email);
+                }
+                if (config.instagram_handles && config.instagram_handles.length > 0) {
+                    decryptedHandles = config.instagram_handles.map(h => {
+                        try { return decrypt(h); } catch { return h; }
+                    });
+                }
+            } catch (e) {
+                // Legacy data - return as-is
+                decryptedHandles = config.instagram_handles || [];
+            }
+            
             res.json({ 
                 hasConfig: true, 
-                email: config.email,
+                email: decryptedEmail,
                 lastScan: config.last_scan,
-                instagramHandles: config.instagram_handles || []
+                instagramHandles: decryptedHandles
             });
         } else {
             res.json({ hasConfig: false });
@@ -1238,13 +1560,16 @@ app.get('/api/email/scan/:userId', async (req, res) => {
             return res.status(400).json({ error: 'No email config found. Please connect your Gmail first.' });
         }
 
-        // Decrypt the app password
+        // Decrypt the app password and email
         let decryptedPassword;
+        let decryptedEmail;
         try {
             decryptedPassword = decrypt(config.app_password);
+            decryptedEmail = config.email.includes(':') ? decrypt(config.email) : config.email;
         } catch (e) {
             // Fallback for legacy unencrypted passwords
             decryptedPassword = config.app_password;
+            decryptedEmail = config.email;
         }
 
         const client = new ImapFlow({
@@ -1252,7 +1577,7 @@ app.get('/api/email/scan/:userId', async (req, res) => {
             port: config.imap_port,
             secure: true,
             auth: {
-                user: config.email,
+                user: decryptedEmail,
                 pass: decryptedPassword
             },
             logger: false
@@ -1429,7 +1754,14 @@ app.get('/api/scrape/instagram/:username', async (req, res) => {
 app.get('/api/scrape/instagram-all/:userId', async (req, res) => {
     try {
         const config = await EmailConfig.findOne({ user_id: req.params.userId });
-        const handles = config?.instagram_handles || [];
+        let handles = config?.instagram_handles || [];
+        
+        // Decrypt handles if they're encrypted
+        if (handles.length > 0 && handles[0].includes(':')) {
+            handles = handles.map(h => {
+                try { return decrypt(h); } catch { return h; }
+            });
+        }
         
         if (handles.length === 0) {
             return res.json([{
@@ -1521,16 +1853,16 @@ app.get('/api/scrape/all', async (req, res) => {
 app.post('/api/import-task', authenticateToken, async (req, res) => {
     try {
         const { user_id, name, startTime, platform, url } = req.body;
-        const newTask = new Task({
+        const newTask = new Task(encryptTaskFields({
             user_id,
             task_name: `[${platform}] ${name}`,
             completion_time: startTime,
             priority: 'Auto',
             source: platform.toLowerCase(),
             source_url: url
-        });
+        }));
         await newTask.save();
-        res.json({ message: "Contest imported as task!", task: newTask });
+        res.json({ message: "Contest imported as task!", task: decryptTaskFields(newTask) });
     } catch (err) {
         console.error('Import error:', err);
         res.status(500).json({ error: 'Failed to import contest' });
